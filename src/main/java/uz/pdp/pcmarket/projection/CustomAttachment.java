@@ -12,9 +12,5 @@ public interface CustomAttachment {
 
     Integer getSize();
 
-    String getExtension();
-
-    String getPath();
-
-    String getDescription();
+    String getContentType();
 }
