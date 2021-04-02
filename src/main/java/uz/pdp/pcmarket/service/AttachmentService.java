@@ -1,19 +1,15 @@
 package uz.pdp.pcmarket.service;
 
-import lombok.SneakyThrows;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageRequest;
-import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
+import org.springframework.util.FileCopyUtils;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.multipart.MultipartHttpServletRequest;
 import uz.pdp.pcmarket.entity.Attachment;
-import uz.pdp.pcmarket.entity.AttachmentContent;
-import uz.pdp.pcmarket.payload.Result;
-import uz.pdp.pcmarket.repository.AttachmentContentRepository;
 import uz.pdp.pcmarket.repository.AttachmentRepository;
 
 
+import javax.servlet.http.HttpServletResponse;
+import java.io.IOException;
 import java.util.Iterator;
 import java.util.Optional;
 
@@ -21,54 +17,38 @@ import java.util.Optional;
 public class AttachmentService {
 
     final AttachmentRepository attachmentRepository;
-    final AttachmentContentRepository attachmentContentRepository;
 
-    public AttachmentService(AttachmentRepository attachmentRepository, AttachmentContentRepository attachmentContentRepository) {
+    public AttachmentService(AttachmentRepository attachmentRepository) {
         this.attachmentRepository = attachmentRepository;
-        this.attachmentContentRepository = attachmentContentRepository;
     }
 
-    @SneakyThrows
-    public Result uploadFile(MultipartHttpServletRequest request) {
+    public String uploadFile(MultipartHttpServletRequest request) throws IOException {
+        final Iterator<String> fileNames = request.getFileNames();
+        final MultipartFile file = request.getFile(fileNames.next());
+        if (file != null) {
+            final String originalFilename = file.getOriginalFilename();
+            final long size = file.getSize();
+            final String contentType = file.getContentType();
+            final byte[] bytes = file.getBytes();
+            Attachment attachment = new Attachment();
+            attachment.setExtension(contentType);
+            attachment.setName(originalFilename);
+            attachment.setSize(size);
+            attachment.setBytes(bytes);
+            final Attachment save = attachmentRepository.save(attachment);
+            return "File saved! File id: " + save.getId();
 
-        Iterator<String> fileNames = request.getFileNames();
-        MultipartFile file = request.getFile(fileNames.next());
-
-        Attachment attachment = new Attachment();
-        assert file != null;
-        attachment.setName(file.getOriginalFilename());
-        attachment.setSize(file.getSize());
-        attachment.setContentType(file.getContentType());
-
-        Attachment savedAttachment = attachmentRepository.save(attachment);
-        AttachmentContent attachmentContent = new AttachmentContent();
-
-        attachmentContent.setBytes(file.getBytes());
-        attachmentContent.setAttachment(savedAttachment);
-        attachmentContentRepository.save(attachmentContent);
-
-        return new Result("File saved", true, savedAttachment.getId());
+        }
+        return "File not saved";
     }
 
-    public Page<Attachment> getAttachmentList(Integer page) {
-
-        Pageable pageable = PageRequest.of(page, 15);
-        return attachmentRepository.findAll(pageable);
-    }
-
-    public Attachment getOneAttachment(Integer attachmentId) {
-
-        Optional<Attachment> optionalAttachment = attachmentRepository.findById(attachmentId);
-        return optionalAttachment.orElseGet(Attachment::new);
-    }
-
-    public Result deleteAttachment(Integer attachmentId) {
-
-        Optional<Attachment> optionalAttachment = attachmentRepository.findById(attachmentId);
-        if (!optionalAttachment.isPresent())
-            return new Result("Invalid Attachment Id", false);
-
-        attachmentRepository.deleteById(attachmentId);
-        return new Result("Attachment deleted", true);
+    public void getFile(Integer id, HttpServletResponse response) throws IOException {
+        final Optional<Attachment> optionalAttachment = attachmentRepository.findById(id);
+        if (optionalAttachment.isPresent()) {
+            final Attachment attachment = optionalAttachment.get();
+            response.setHeader("Content-Disposition", "attachment; filename=\"" + attachment.getName() + "\"");
+            response.setContentType(attachment.getExtension());
+            FileCopyUtils.copy(attachment.getBytes(), response.getOutputStream());
+        }
     }
 }
