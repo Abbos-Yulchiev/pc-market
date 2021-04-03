@@ -5,8 +5,9 @@ import org.springframework.util.FileCopyUtils;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.multipart.MultipartHttpServletRequest;
 import uz.pdp.pcmarket.entity.Attachment;
+import uz.pdp.pcmarket.entity.AttachmentContent;
+import uz.pdp.pcmarket.repository.AttachmentContentRepository;
 import uz.pdp.pcmarket.repository.AttachmentRepository;
-
 
 import javax.servlet.http.HttpServletResponse;
 import java.io.IOException;
@@ -17,25 +18,32 @@ import java.util.Optional;
 public class AttachmentService {
 
     final AttachmentRepository attachmentRepository;
+    final AttachmentContentRepository attachmentContentRepository;
 
-    public AttachmentService(AttachmentRepository attachmentRepository) {
+    public AttachmentService(AttachmentRepository attachmentRepository, AttachmentContentRepository attachmentContentRepository) {
         this.attachmentRepository = attachmentRepository;
+        this.attachmentContentRepository = attachmentContentRepository;
     }
 
     public String uploadFile(MultipartHttpServletRequest request) throws IOException {
-        final Iterator<String> fileNames = request.getFileNames();
-        final MultipartFile file = request.getFile(fileNames.next());
+
+        Iterator<String> fileNames = request.getFileNames();
+        MultipartFile file = request.getFile(fileNames.next());
+
         if (file != null) {
-            final String originalFilename = file.getOriginalFilename();
-            final long size = file.getSize();
-            final String contentType = file.getContentType();
-            final byte[] bytes = file.getBytes();
+            String originalFilename = file.getOriginalFilename();
+            long size = file.getSize();
+            String contentType = file.getContentType();
             Attachment attachment = new Attachment();
             attachment.setExtension(contentType);
             attachment.setName(originalFilename);
             attachment.setSize(size);
-            attachment.setBytes(bytes);
-            final Attachment save = attachmentRepository.save(attachment);
+            Attachment save = attachmentRepository.save(attachment);
+
+            AttachmentContent attachmentContent = new AttachmentContent();
+            attachmentContent.setAttachment(save);
+            attachmentContent.setBytes(file.getBytes());
+            attachmentContentRepository.save(attachmentContent);
             return "File saved! File id: " + save.getId();
 
         }
@@ -43,12 +51,19 @@ public class AttachmentService {
     }
 
     public void getFile(Integer id, HttpServletResponse response) throws IOException {
-        final Optional<Attachment> optionalAttachment = attachmentRepository.findById(id);
+
+        Optional<Attachment> optionalAttachment = attachmentRepository.findById(id);
+
         if (optionalAttachment.isPresent()) {
-            final Attachment attachment = optionalAttachment.get();
-            response.setHeader("Content-Disposition", "attachment; filename=\"" + attachment.getName() + "\"");
-            response.setContentType(attachment.getExtension());
-            FileCopyUtils.copy(attachment.getBytes(), response.getOutputStream());
+            Attachment attachment = optionalAttachment.get();
+            Optional<AttachmentContent> optionalAttachmentContent = attachmentContentRepository.findById(id);
+
+            if (optionalAttachmentContent.isPresent()) {
+                AttachmentContent attachmentContent = optionalAttachmentContent.get();
+                response.setHeader("Content-Disposition", "attachment; filename=\"" + attachment.getName() + "\"");
+                response.setContentType(attachment.getExtension());
+                FileCopyUtils.copy(attachmentContent.getBytes(), response.getOutputStream());
+            }
         }
     }
 }
