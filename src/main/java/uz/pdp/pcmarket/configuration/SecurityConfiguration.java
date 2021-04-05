@@ -21,14 +21,15 @@ public class SecurityConfiguration extends WebSecurityConfigurerAdapter {
 
         auth
                 .inMemoryAuthentication()
-                .withUser(Roles.SUPER_ADMIN).password(passwordEncoder().encode("super-admin"))
-                        .roles(Roles.SUPER_ADMIN).authorities(Privileges.RED_ALL_PRODUCT, Privileges.ADD_PRODUCT, Privileges.EDIT_PRODUCT, Privileges.DELETE_PRODUCT, Privileges.RED_ONE_PRODUCT)
+                .withUser("super-admin").password(passwordEncoder().encode("super-admin"))
+                .roles(Roles.SUPER_ADMIN)
+                .authorities(Privileges.RED_ALL_PRODUCT, Privileges.ADD_PRODUCT, Privileges.EDIT_PRODUCT, Privileges.DELETE_PRODUCT, Privileges.RED_ONE_PRODUCT)
                 .and()
-                .withUser(Roles.MODERATOR).password(passwordEncoder().encode("moderator"))
-                        .roles(Roles.MODERATOR).authorities(Privileges.RED_ALL_PRODUCT, Privileges.ADD_PRODUCT, Privileges.EDIT_PRODUCT, Privileges.RED_ONE_PRODUCT)
+                .withUser("moderator").password(passwordEncoder().encode("moderator"))
+                .roles(Roles.MODERATOR).authorities(Privileges.RED_ALL_PRODUCT, Privileges.ADD_PRODUCT, Privileges.EDIT_PRODUCT, Privileges.RED_ONE_PRODUCT)
                 .and()
-                .withUser(Roles.OPERATOR).password(passwordEncoder().encode("operator"))
-                        .roles(Roles.OPERATOR).authorities(Privileges.RED_ALL_PRODUCT, Privileges.RED_ONE_PRODUCT);
+                .withUser("operator").password(passwordEncoder().encode("operator"))
+                .roles(Roles.OPERATOR).authorities(Privileges.RED_ALL_PRODUCT, Privileges.RED_ONE_PRODUCT);
     }
 
     @Override
@@ -37,6 +38,7 @@ public class SecurityConfiguration extends WebSecurityConfigurerAdapter {
         http
                 .csrf().disable()
                 .authorizeRequests()
+                .antMatchers(HttpMethod.GET, "/api/product/*").hasAuthority(Privileges.RED_ONE_PRODUCT)
                 .antMatchers(HttpMethod.GET, "/api/product").hasAuthority(Privileges.RED_ALL_PRODUCT)
                 .antMatchers(HttpMethod.POST, "/api/product").hasAnyAuthority(Privileges.ADD_PRODUCT)
                 .antMatchers(HttpMethod.PUT, "/api/product/*").hasAuthority(Privileges.EDIT_PRODUCT)
